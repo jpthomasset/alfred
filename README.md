@@ -1,2 +1,3 @@
-https://github.com/jitsi/libjitsi
-https://github.com/usnistgov/jsip
+# Alfred - A SIP client
+
+WIP - Please come back later
