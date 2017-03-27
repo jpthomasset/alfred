@@ -4,14 +4,21 @@ import java.util.Properties
 import javax.sip._
 import javax.sip.address.AddressFactory
 import javax.sip.header.HeaderFactory
-import javax.sip.message.MessageFactory
+import javax.sip.message.{ MessageFactory, Request }
+import scala.concurrent.Future
 import scala.io.StdIn
-import scala.util.Try
+import scala.util.{ Failure, Success, Try }
+import collection.JavaConverters._
 
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val client = SipClient.create("10.49.0.1", 5070)
+    val client = SipClient.create("192.168.1.18", 5070)
+    client match {
+      case Success(c) => println(s"Ok $c")
+      case Failure(t) => println(s"Err: $t")
+    }
+   // client.foreach(_.register("sb8jzru5", "192.168.1.200"))
 
     println(s"\u001B[32mStarting SampleClient, Ctrl+D to stop and go back to the console...\u001B[0m")
     while(StdIn.readLine() != null) {}
@@ -29,31 +36,16 @@ class CSeq {
 
 case class SipContext(ip: String, port: Int, stack: SipStack, provider: SipProvider, addressFactory: AddressFactory, messageFactory: MessageFactory, headerFactory: HeaderFactory)
 
-class SipClient(sip: SipContext) extends SipListener {
+class SipClient(val sip: SipContext) extends SipListener {
   val cseq = new CSeq
   val tag: Int = 4321
-
-  def register(username: String, server: String) = {
-    val callId = sip.provider.getNewCallId();
-    val header = sip.headerFactory.createCSeqHeader(cseq.next, "REGISTER")
-    val address = sip.addressFactory.createAddress(s"sip:$username@$server")
-    val from = sip.headerFactory.createFromHeader(address, tag.toString)
-    val to = sip.headerFactory.createToHeader(address, null)
-    val maxFwd = sip.headerFactory.createMaxForwardsHeader(70)
-    val via = sip.headerFactory.createViaHeader(sip.ip, sip.port, "udp", null)
-    val contactAddress = sip.addressFactory.createAddress(s"sip:$username@${sip.ip}")
-    val contact = sip.headerFactory.createContactHeader(contactAddress)
-    val exp = sip.headerFactory.createExpiresHeader(120)
-
-    val rq = sip.messageFactory.createRequest(s"REGISTER sip:$server SIP/2.0\r\n\r\n")
-  }
 
   def processRequest(event: RequestEvent): Unit = {
 
   }
 
   def processResponse(event: ResponseEvent): Unit = {
-    println(event)
+    println(event.getResponse)
   }
 
   def processDialogTerminated(event: DialogTerminatedEvent): Unit = {
@@ -73,12 +65,38 @@ class SipClient(sip: SipContext) extends SipListener {
   }
 }
 
+// case class SipAccount(username: String, password: String)
+
+// trait SipRequest {
+//   implicit def sipClient: SipClient
+//   def action: String
+//   def to: String
+//   def from: String
+//   def send(f: => Unit): Unit = {
+//     val callId = sipClient.sip.provider.getNewCallId();
+//     val cseqHeader = sipClient.sip.headerFactory.createCSeqHeader(sipClient.cseq.next, action)
+//     val toAddress = sipClient.sip.addressFactory.createAddress(to)
+//     val fromAddress = sipClient.sip.addressFactory.createAddress(from)
+//     val fromH = sipClient.sip.headerFactory.createFromHeader(fromAddress, sipClient.tag.toString)
+//     val toH = sipClient.sip.headerFactory.createToHeader(toAddress, null)
+//     val maxFwd = sipClient.sip.headerFactory.createMaxForwardsHeader(70)
+//     val via = sipClient.sip.headerFactory.createViaHeader(sipClient.sip.ip, sipClient.sip.port, "udp", null)
+//     val contact = sipClient.sip.headerFactory.createContactHeader(fromAddress)
+    
+//     val rq = sipClient.sip.messageFactory.createRequest(toAddress.getURI, Request.REGISTER, callId, cseqHeader, fromH, toH, List(via).asJava, maxFwd)
+//     rq.addHeader(contact)
+//     sipClient.sip.provider.sendRequest(rq)
+
+//   }
+// }
+
+
 object SipClient {
   def create(localAddress: String, port: Int): Try[SipClient] = {
     val sipFactory = SipFactory.getInstance();
     sipFactory.setPathName("gov.nist");
     val properties = new Properties();
-    properties.setProperty("javax.sip.STACK_NAME", "SipClient");
+    properties.setProperty("javax.sip.STACK_NAME", "stack");
     for {
       stack <- Try(sipFactory.createSipStack(properties))
       header <- Try(sipFactory.createHeaderFactory())
