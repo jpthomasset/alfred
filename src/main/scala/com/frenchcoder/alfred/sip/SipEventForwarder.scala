@@ -1,13 +1,12 @@
 package com.frenchcoder.alfred.sip
 
+import akka.actor.ActorRef
 import javax.sip._
 
 class SipEventForwarder(actorRef: ActorRef) extends SipListener {
-  val cseqgen = new SequenceGenerator()
-  val tag: Int = 4321
 
   def processRequest(event: RequestEvent): Unit = {
-
+    
   }
 
   def processResponse(event: ResponseEvent): Unit = {

@@ -1,29 +1,20 @@
 package com.frenchcoder.alfred.sip
 
 
-case class Method(method: String)
-
-object Method {
-  val Register = Method("REGISTER")
-  val Invite = Method("INVITE")
-  val Ack = Method("ACK")
-  val Cancel = Method("CANCEL")
-  val Bye = Method("BYE")
-  val Options = Method("OPTIONS")
-}
-
-class Request(val method: Method) {
-  def send : Unit = {
-
-  }
-}
-
-import Method._
-
-class Register(to: String) extends Request(Register) {
+class Method(name: String) {
   
 }
 
-class Invite(to: String) extends Request(Invite) {
+case object Register extends Method("REGISTER")
+case object Invite extends Method("INVITE")
+case object Ack extends Method("ACK")
+case object Cancel extends Method("CANCEL")
+case object Bye extends Method("BYE")
+case object Options extends Method("OPTIONS")
+
+
+class Request[A](val method: Method, val headers: Headers, val body: A) {
   
 }
+
+
