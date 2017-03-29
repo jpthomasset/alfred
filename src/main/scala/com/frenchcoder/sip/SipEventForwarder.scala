@@ -1,18 +1,12 @@
-package com.frenchcoder.alfred.sip
+package com.frenchcoder.sip
 
+import akka.actor.ActorRef
 import javax.sip._
-import javax.sip.address.AddressFactory
-import javax.sip.header.HeaderFactory
-import javax.sip.message.{ MessageFactory }
 
-case class SipContext(ip: String, port: Int, stack: SipStack, provider: SipProvider, addressFactory: AddressFactory, messageFactory: MessageFactory, headerFactory: HeaderFactory)
-
-class SipClient(val sip: SipContext) extends SipListener {
-  val cseqgen = new SequenceGenerator()
-  val tag: Int = 4321
+class SipEventForwarder(actorRef: ActorRef) extends SipListener {
 
   def processRequest(event: RequestEvent): Unit = {
-
+    
   }
 
   def processResponse(event: ResponseEvent): Unit = {

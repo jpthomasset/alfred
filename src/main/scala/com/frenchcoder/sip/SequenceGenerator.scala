@@ -1,4 +1,4 @@
-package com.frenchcoder.alfred.sip
+package com.frenchcoder.sip
 
 class SequenceGenerator {
   private var seq = 0l

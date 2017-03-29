@@ -1,4 +1,4 @@
-package com.frenchcoder.alfred.sip
+package com.frenchcoder.sip
 
 case class Status(status: Int)
 
