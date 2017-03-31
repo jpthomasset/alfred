@@ -1,5 +1,7 @@
 package com.frenchcoder.sip
 
-class Content(payload: String) {
+trait AbstractContent
 
-}
+case object EmptyContent extends AbstractContent
+
+case class Content(contentType: String, payload: String) extends AbstractContent

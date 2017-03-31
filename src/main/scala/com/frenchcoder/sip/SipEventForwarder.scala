@@ -3,14 +3,14 @@ package com.frenchcoder.sip
 import akka.actor.ActorRef
 import javax.sip._
 
-class SipEventForwarder(actorRef: ActorRef) extends SipListener {
+class SipEventForwarder(client: ActorRef) extends SipListener {
 
   def processRequest(event: RequestEvent): Unit = {
-    
+    client ! Request(event.getRequest)
   }
 
   def processResponse(event: ResponseEvent): Unit = {
-    println(event.getResponse)
+    client ! Response(event.getResponse)
   }
 
   def processDialogTerminated(event: DialogTerminatedEvent): Unit = {
