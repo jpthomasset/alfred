@@ -1,6 +1,7 @@
 package com.frenchcoder.sip
 
 import gov.nist.javax.sip.{header => gsh}
+import scala.reflect.ClassTag
 
 class Headers(val headers: Seq[(String, String)]) {
 
@@ -43,4 +44,19 @@ object Headers {
   val `Content-Length` = "Content-Length"
   val `Content-Type` = "Content-Type"
   val `WWW-Authenticate` = "WWW-Authenticate"
+}
+
+
+trait Header {
+  def name: String
+  def value: String
+
+}
+
+abstract class HeaderModel[T: ClassTag] extends Header {
+
+  private def nameFromModel(clazz: Class[T]): String = {
+    //val n = clazz.getName
+    ""
+  }
 }

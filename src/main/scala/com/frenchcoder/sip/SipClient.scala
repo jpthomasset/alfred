@@ -17,11 +17,14 @@ class SipClient(val sip: SipContext, val account: String, val displayName: Optio
   def send[A](request: Request[A]) = {
     val callId = sip.provider.getNewCallId();
     val cseqHeader = sip.headerFactory.createCSeqHeader(cseqgen.next, request.method.name)
-    //    val toAddress = sip.addressFactory.createAddress(to)
+    val maxFwd = sip.headerFactory.createMaxForwardsHeader(70)
+    val via = sip.headerFactory.createViaHeader(sip.ip, sip.port, "udp", null)
+
+    //val toAddress = sip.addressFactory.createAddress(to)
 //    val fromAddress = sip.addressFactory.createAddress(from)
 //     val fromH = sipClient.sip.headerFactory.createFromHeader(fromAddress, sipClient.tag.toString)
 //     val toH = sipClient.sip.headerFactory.createToHeader(toAddress, null)
-//     val maxFwd = sipClient.sip.headerFactory.createMaxForwardsHeader(70)
+
 //     val via = sipClient.sip.headerFactory.createViaHeader(sipClient.sip.ip, sipClient.sip.port, "udp", null)
 //     val contact = sipClient.sip.headerFactory.createContactHeader(fromAddress)
     

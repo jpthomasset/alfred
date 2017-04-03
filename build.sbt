@@ -1,7 +1,8 @@
 val dependencies = Seq(
   "javax.sip" % "jain-sip-ri" % "1.2.327",
   "log4j" % "log4j" % "1.2.17",
-  "com.typesafe.akka" %% "akka-actor" % "2.4.16"
+  "com.typesafe.akka" %% "akka-actor" % "2.4.16",
+  "org.parboiled" %% "parboiled"  % "2.1.4"
 )
 
 val testDependencies = Seq(
