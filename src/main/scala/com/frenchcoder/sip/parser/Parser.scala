@@ -2,18 +2,22 @@ package com.frenchcoder.sip.parser
 
 import org.parboiled2._
 
-class MessageParser(val input: ParserInput) extends Parser {
-
+object MessageParser {
   val reserved = CharPredicate(";/?:@&=+$,")
   val mark = CharPredicate("-_.!~*'()")
   val unreserved = CharPredicate.AlphaNum ++ mark
   val userUnreserved  =  CharPredicate("&=+$,;?/")
+}
+
+class MessageParser(val input: ParserInput) extends Parser {
+  import MessageParser._
 
   def escaped = rule { '%' ~ CharPredicate.HexDigit ~ CharPredicate.HexDigit }
+  def userInfo = rule { ( user | telephoneSubscriber ) ~ optional(":" ~ password) ~ "@"}
   def user = rule { oneOrMore(unreserved | escaped | userUnreserved ) }
   def password = rule { oneOrMore(unreserved | escaped | CharPredicate("&=+$,")) }
   def method = rule { "REGISTER" | "INVITE" | "ACK" | "CANCEL" | "BYE" | "OPTIONS" }
-  
+  def telephoneSubscriber = rule { runSubParser(new TelParser(_).telephoneSubscriber) }
 }
 
 
