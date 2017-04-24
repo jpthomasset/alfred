@@ -27,6 +27,7 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
     (CharPredicate('\u00F8' to '\u00FB') ~ 4.times(UTF8CONT)) |
     (CharPredicate('\u00FC' to '\u00FD') ~ 5.times(UTF8CONT))
   }
+  def EQUAL = rule { SWS ~ "=" ~ SWS }
 
   def quotedPair = rule { '\\' ~ (CharPredicate('\u0000' to '\u0009') | CharPredicate('\u000B' to '\u000C') | CharPredicate('\u000E' to '\u007F')) }
   def qdtext = rule { LWS | CharPredicate('\u0021') | CharPredicate('\u0023' to '\u005B') | CharPredicate('\u005D' to '\u007E') | UTF8NONASCII }
@@ -67,12 +68,14 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 //                   / ( m-type SLASH "*" )
 //                   / ( m-type SLASH m-subtype )
 //                   ) *( SEMI m-parameter )
-// accept-param   =  ("q" EQUAL qvalue) / generic-param
-// qvalue         =  ( "0" [ "." 0*3DIGIT ] )
-//                   / ( "1" [ "." 0*3("0") ] )
-// generic-param  =  token [ EQUAL gen-value ]
-// gen-value      =  token / host / quoted-string
 
+//  def mediaRange = rule { "*/*" | 
+  def acceptParam = rule { ('q' ~ EQUAL ~ qvalue) | genericParam }
+  def qvalue = rule {
+    ('0' ~ optional('.' ~ optional((1 to 3).times(CharPredicate.Digit)))) |
+    ('1' ~ optional('.' ~ optional((1 to 3).times('0'))))
+  }
+  def genericParam = rule { token ~ optional(EQUAL ~ genValue) }
   def genValue = rule { token | host | quotedString }
 
   
