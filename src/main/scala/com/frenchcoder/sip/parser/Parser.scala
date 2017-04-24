@@ -10,6 +10,7 @@ object MessageParser {
   val hnvUnreserved  =  CharPredicate("[]/?:+$")
   val SP = CharPredicate(' ')
   val WSP = CharPredicate(" \t")
+  val UTF8CONT = CharPredicate('\u0080' to '\u00BF')
 }
 
 class MessageParser(val input: ParserInput) extends Parser with TelParser with IpAddressParser {
@@ -19,6 +20,17 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def LWS = rule { optional(zeroOrMore(WSP) ~ CRLF) ~ oneOrMore(WSP) }
   def SWS = rule { optional(LWS) }
   def HCOLON = rule { zeroOrMore(WSP) ~ ":" ~ SWS }
+  def UTF8NONASCII = rule {
+    (CharPredicate('\u00C0' to '\u00DF') ~ UTF8CONT) |
+    (CharPredicate('\u00E0' to '\u00EF') ~ 2.times(UTF8CONT)) |
+    (CharPredicate('\u00F0' to '\u00F7') ~ 3.times(UTF8CONT)) |
+    (CharPredicate('\u00F8' to '\u00FB') ~ 4.times(UTF8CONT)) |
+    (CharPredicate('\u00FC' to '\u00FD') ~ 5.times(UTF8CONT))
+  }
+
+  def quotedPair = rule { '\\' ~ (CharPredicate('\u0000' to '\u0009') | CharPredicate('\u000B' to '\u000C') | CharPredicate('\u000E' to '\u007F')) }
+  def qdtext = rule { LWS | CharPredicate('\u0021') | CharPredicate('\u0023' to '\u005B') | CharPredicate('\u005D' to '\u007E') | UTF8NONASCII }
+
 
   def escaped = rule { '%' ~ CharPredicate.HexDigit ~ CharPredicate.HexDigit }
   def userInfo = rule { ( user | telephoneSubscriber ) ~ optional(":" ~ password) ~ "@"}
@@ -60,6 +72,8 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 //                   / ( "1" [ "." 0*3("0") ] )
 // generic-param  =  token [ EQUAL gen-value ]
 // gen-value      =  token / host / quoted-string
+
+  def genValue = rule { token | host | quotedString }
 
   
 
