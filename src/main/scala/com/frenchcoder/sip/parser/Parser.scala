@@ -1,5 +1,6 @@
 package com.frenchcoder.sip.parser
 
+import com.frenchcoder.sip._
 import org.parboiled2._
 
 object MessageParser {
@@ -11,6 +12,7 @@ object MessageParser {
   val SP = CharPredicate(' ')
   val WSP = CharPredicate(" \t")
   val UTF8CONT = CharPredicate('\u0080' to '\u00BF')
+  val wordChar = CharPredicate.AlphaNum ++ CharPredicate("-.!%*_+`'~()<>:\\\"/[]?{}")
 }
 
 class MessageParser(val input: ParserInput) extends Parser with TelParser with IpAddressParser {
@@ -27,11 +29,13 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
     (CharPredicate('\u00F8' to '\u00FB') ~ 4.times(UTF8CONT)) |
     (CharPredicate('\u00FC' to '\u00FD') ~ 5.times(UTF8CONT))
   }
+  def TEXTUTF8char = rule { CharPredicate('\u0021' to '\u007E') | UTF8NONASCII }
   def EQUAL = rule { SWS ~ "=" ~ SWS }
 
   def quotedPair = rule { '\\' ~ (CharPredicate('\u0000' to '\u0009') | CharPredicate('\u000B' to '\u000C') | CharPredicate('\u000E' to '\u007F')) }
   def qdtext = rule { LWS | CharPredicate('\u0021') | CharPredicate('\u0023' to '\u005B') | CharPredicate('\u005D' to '\u007E') | UTF8NONASCII }
 
+  def word = rule { oneOrMore(wordChar) }
 
   def escaped = rule { '%' ~ CharPredicate.HexDigit ~ CharPredicate.HexDigit }
   def userInfo = rule { ( user | telephoneSubscriber ) ~ optional(":" ~ password) ~ "@"}
@@ -60,71 +64,29 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 
   def SipUri = rule { "sip:" ~ optional(userInfo) ~ hostAndPort ~ uriParameters ~ optional(headers)}
   def SipsUri = rule { "sips:" ~ optional(userInfo) ~ hostAndPort ~ uriParameters ~ optional(headers)}
+  def SipVersion = rule { "SIP/" ~ oneOrMore(CharPredicate.Digit) ~ "." ~ oneOrMore(CharPredicate.Digit) }
 
-// Accept         =  "Accept" HCOLON
-//                    [ accept-range *(COMMA accept-range) ]
-// accept-range   =  media-range *(SEMI accept-param)
-// media-range    =  ( "*/*"
-//                   / ( m-type SLASH "*" )
-//                   / ( m-type SLASH m-subtype )
-//                   ) *( SEMI m-parameter )
-
-//  def mediaRange = rule { "*/*" | 
-  def acceptParam = rule { ('q' ~ EQUAL ~ qvalue) | genericParam }
-  def qvalue = rule {
-    ('0' ~ optional('.' ~ optional((1 to 3).times(CharPredicate.Digit)))) |
-    ('1' ~ optional('.' ~ optional((1 to 3).times('0'))))
-  }
-  def genericParam = rule { token ~ optional(EQUAL ~ genValue) }
-  def genValue = rule { token | host | quotedString }
-
+  def requestUri = rule { SipUri | SipsUri }
+  def requestLine = rule { method ~ SP ~ requestUri ~ SP ~ SipVersion ~ CRLF }
+  def statusCode = rule { 3.times(CharPredicate.Digit) }
+  def reasonPhrase = rule { zeroOrMore(reserved | unreserved | escaped | UTF8NONASCII | UTF8CONT | WSP) }
+  def statusLine = rule { SipVersion ~ SP ~ statusCode ~ reasonPhrase ~ CRLF }
   
+  def headerValue = rule { zeroOrMore(TEXTUTF8char | UTF8CONT | LWS) }
+  def extensionHeader = rule { capture(token) ~ HCOLON ~ capture(headerValue) ~> ((n,v) => GenericHeader(n, v)) }
 
-  // Accept
-  // Accept-Encoding
-  // Accept-Language
-  // Alert-Info
-  // Allow
-  // Authentication-Info
-  // Authorization
-  // Call-ID
-  // Call-Info
-  // Contact
-  // Content-Disposition
-  // Content-Encoding
-  // Content-Language
-  // Content-Length
-  // Content-Type
-  // CSeq
-  // Date
-  // Error-Info
-  // Expires
-  // From
-  // In-Reply-To
-  // Max-Forwards
-  // MIME-Version
-  // Min-Expires
-  // Organization
-  // Priority
-  // Proxy-Authenticate
-  // Proxy-Authorization
-  // Proxy-Require
-  // Record-Route
-  // Reply-To
-  // Require
-  // Retry-After
-  // Route
-  // Server
-  // Subject
-  // Supported
-  // Timestamp
-  // To
-  // Unsupported
-  // User-Agent
-  // Via
-  // Warning
-  // WWW-Authenticate
-  // extension-header
+  def messageHeader = rule { (callIdHeader | extensionHeader) ~ CRLF }
+  def messageBody = rule { zeroOrMore(CharPredicate.All) }
+
+  def request = rule { requestLine ~ zeroOrMore(messageHeader) ~ CRLF ~ optional(messageBody) }
+  def response = rule { statusLine ~ zeroOrMore(messageHeader) ~ CRLF ~ optional(messageBody) }
+  def SipMessage = rule { request | response }
+
+
+  /* Handled headers */
+  def callIdHeader = rule { ("Call-Id" | "i") ~ HCOLON ~ capture(word ~ optional('@' ~ word)) ~> (i => CallId(i)) }
+
+
 }
 
 

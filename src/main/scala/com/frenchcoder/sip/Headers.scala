@@ -53,6 +53,13 @@ trait Header {
 
 }
 
+case class GenericHeader (name: String, value: String) extends Header
+
+case class CallId(callId: String) extends Header {
+  val name = "Call-Id"
+  val value = callId
+}
+
 abstract class HeaderModel[T: ClassTag] extends Header {
 
   private def nameFromModel(clazz: Class[T]): String = {
