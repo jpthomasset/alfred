@@ -42,7 +42,7 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def word = rule { oneOrMore(wordChar) }
 
   def escaped = rule { '%' ~ CharPredicate.HexDigit ~ CharPredicate.HexDigit }
-  def userInfo = rule { capture( user | telephoneSubscriber ) ~ optional(":" ~ capture(password)) ~ "@" ~> ((u, p) => UserInfo(u, p)) }
+  def userInfo: Rule1[UserInfo] = rule { capture( user | telephoneSubscriber ) ~ optional(":" ~ capture(password)) ~ "@" ~> ((u, p) => UserInfo(u, p)) }
   def user = rule { oneOrMore(unreserved | escaped | userUnreserved ) }
   def password = rule { oneOrMore(unreserved | escaped | CharPredicate("&=+$,")) }
   def method = rule { "REGISTER" | "INVITE" | "ACK" | "CANCEL" | "BYE" | "OPTIONS" }
@@ -86,8 +86,10 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def pchar = rule { unreserved | escaped | CharPredicate(":@&=+$,") }
   def scheme =  rule { CharPredicate.Alpha ~ zeroOrMore(CharPredicate.AlphaNum | CharPredicate("+-.")) }
   def authority = rule { srvr | regName }
-  def srvr =  rule { optional(optional(userInfo ~ "@") ~ hostPort) }
-  def regName  =  rule { oneOrMore(unreserved | escaped | CharPredicate("$,;:@&=+")) }
+  def srvrNonEmpty = rule { optional(userInfo ~ "@") ~ hostPort ~> ((u, h) => Server(u, h)) }
+  def srvr =  rule { optional(srvrNonEmpty) ~> (s => s.getOrElse(EmptyServer)) }
+//    def srvr =  rule { optional(optional(userInfo ~ "@") ~ hostPort) }
+  def regName  =  rule { capture(oneOrMore(unreserved | escaped | CharPredicate("$,;:@&=+"))) ~> (s => RegName(s)) }
   def query =  rule { zeroOrMore(uric) }
 
   def tagParam = rule { "tag" ~ EQUAL ~ token }
