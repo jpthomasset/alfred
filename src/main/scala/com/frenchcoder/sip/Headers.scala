@@ -60,6 +60,11 @@ case class CallId(callId: String) extends Header {
   val value = callId
 }
 
+case class CSeq(id: Long) extends Header {
+  val name = "CSeq"
+  val value = id.toString
+}
+
 abstract class HeaderModel[T: ClassTag] extends Header {
 
   private def nameFromModel(clazz: Class[T]): String = {

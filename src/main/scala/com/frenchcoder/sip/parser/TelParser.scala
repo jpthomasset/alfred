@@ -51,8 +51,8 @@ trait TelParser { this: Parser =>
   def domainLabel = rule { CharPredicate.Alpha ~ zeroOrMore(zeroOrMore(CharPredicate.AlphaNum ++ CharPredicate('-')) ~ CharPredicate.Alpha) }
   def domain = rule { domainLabel + zeroOrMore('.' ~ domainLabel) }
   def serviceProvider = rule { ";tsp=" ~ domain }
-  def quotedString = rule { '"' ~ zeroOrMore( ('\\' ~ CharPredicate.All) |  (CharPredicate('\u0020' to '\u0021') | CharPredicate('\u0023' to '\u007E') | CharPredicate('\u0080' to '\u00FF'))) ~ '"' }
-  def futureExtension = rule { ";" ~ oneOrMore(tokenChar) ~ optional("=" ~ (oneOrMore(tokenChar) ~ optional('?' ~ oneOrMore(tokenChar)) | quotedString)) }
+  def telQuotedString = rule { '"' ~ zeroOrMore( ('\\' ~ CharPredicate.All) |  (CharPredicate('\u0020' to '\u0021') | CharPredicate('\u0023' to '\u007E') | CharPredicate('\u0080' to '\u00FF'))) ~ '"' }
+  def futureExtension = rule { ";" ~ oneOrMore(tokenChar) ~ optional("=" ~ (oneOrMore(tokenChar) ~ optional('?' ~ oneOrMore(tokenChar)) | telQuotedString)) }
   def basePhoneNumber = rule { oneOrMore(phoneDigit) }
   def localPhoneNumber = rule {
     oneOrMore(phoneDigit | dtmfDigit | pauseCharacter) ~

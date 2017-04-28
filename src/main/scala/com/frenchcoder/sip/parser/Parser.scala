@@ -21,7 +21,10 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def CRLF = rule { "\r\n" }
   def LWS = rule { optional(zeroOrMore(WSP) ~ CRLF) ~ oneOrMore(WSP) }
   def SWS = rule { optional(LWS) }
-  def HCOLON = rule { zeroOrMore(WSP) ~ ":" ~ SWS }
+  def HCOLON = rule { zeroOrMore(WSP) ~ ':' ~ SWS }
+  def RAQUOT = rule { '>' ~ SWS }
+  def LAQUOT = rule { SWS ~ '<' }
+  def SEMI = rule { SWS ~ ';' ~ SWS }
   def UTF8NONASCII = rule {
     (CharPredicate('\u00C0' to '\u00DF') ~ UTF8CONT) |
     (CharPredicate('\u00E0' to '\u00EF') ~ 2.times(UTF8CONT)) |
@@ -34,17 +37,18 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 
   def quotedPair = rule { '\\' ~ (CharPredicate('\u0000' to '\u0009') | CharPredicate('\u000B' to '\u000C') | CharPredicate('\u000E' to '\u007F')) }
   def qdtext = rule { LWS | CharPredicate('\u0021') | CharPredicate('\u0023' to '\u005B') | CharPredicate('\u005D' to '\u007E') | UTF8NONASCII }
+  def quotedString  =  rule { SWS ~ '"' ~ zeroOrMore(qdtext | quotedPair ) ~ '"' }
 
   def word = rule { oneOrMore(wordChar) }
 
   def escaped = rule { '%' ~ CharPredicate.HexDigit ~ CharPredicate.HexDigit }
-  def userInfo = rule { ( user | telephoneSubscriber ) ~ optional(":" ~ password) ~ "@"}
+  def userInfo = rule { capture( user | telephoneSubscriber ) ~ optional(":" ~ capture(password)) ~ "@" ~> ((u, p) => UserInfo(u, p)) }
   def user = rule { oneOrMore(unreserved | escaped | userUnreserved ) }
   def password = rule { oneOrMore(unreserved | escaped | CharPredicate("&=+$,")) }
   def method = rule { "REGISTER" | "INVITE" | "ACK" | "CANCEL" | "BYE" | "OPTIONS" }
   def port = rule { oneOrMore(CharPredicate.Digit) }
   def host = rule { domain | IpV4Address | IpV6Address }
-  def hostAndPort = rule { host ~ optional(':' ~ port) }
+  def hostPort = rule { capture(host) ~ optional(':' ~ capture(port)) ~> ((h, p) => HostAndPort(h, p.map(_.toInt))) }
   def token = rule { oneOrMore(CharPredicate.AlphaNum | CharPredicate("-.!%*_+`'~")) }
   def transportParam = rule { "transport=" ~ ("udp" | "tcp" | "sctp" | "tls" | token) }
   def userParam = rule { "user=" ~ ( "phone" | "ip" | token) }
@@ -52,8 +56,7 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def ttl = rule { (1 to 3).times(CharPredicate.Digit) }
   def ttlParam = rule { "ttl=" ~ ttl }
   def maddrParam  = rule { "maddr=" ~ host }
-  def param  =  rule { CharPredicate("[]/:&+$") | unreserved | escaped }
-  def paramNameValue = rule { oneOrMore(param) }
+  def paramNameValue = rule { oneOrMore(CharPredicate("[]/:&+$") | unreserved | escaped) }
   def otherParam = rule { paramNameValue ~ optional('=' ~ paramNameValue) }
   def hname = rule { oneOrMore(hnvUnreserved | unreserved | escaped) }
   def hvalue = rule { zeroOrMore(hnvUnreserved | unreserved | escaped) }
@@ -62,11 +65,42 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def uriParameter = rule { transportParam | userParam | methodParam | ttlParam | maddrParam | "lr" | otherParam }
   def uriParameters = rule { zeroOrMore(';' ~ uriParameter) }
 
-  def SipUri = rule { "sip:" ~ optional(userInfo) ~ hostAndPort ~ uriParameters ~ optional(headers)}
-  def SipsUri = rule { "sips:" ~ optional(userInfo) ~ hostAndPort ~ uriParameters ~ optional(headers)}
+  def SipUri = rule { "sip:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers)}
+  def SipsUri = rule { "sips:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers)}
   def SipVersion = rule { "SIP/" ~ oneOrMore(CharPredicate.Digit) ~ "." ~ oneOrMore(CharPredicate.Digit) }
 
-  def requestUri = rule { SipUri | SipsUri }
+  def addrSpec =  rule { SipUri | SipsUri | absoluteURI }
+  def absoluteURI =  rule { scheme ~ ":" ~ ( hierPart | opaquePart ) }
+  def hierPart =  rule { (netPath | absPath ) ~ optional("?" ~ query) }
+  def netPath =  rule { "//" ~ authority ~ optional(absPath) }
+  def absPath =  rule { "/" ~ pathSegments }
+
+  def opaquePart    =  rule { uricNoSlash ~ zeroOrMore(uric) }
+  def uric = rule { reserved | unreserved | escaped }
+  def uricNoSlash = rule { unreserved | escaped | CharPredicate(";?:@&=+$,") }
+
+  def pathSegments  =  rule { segment ~ zeroOrMore("/" ~ segment) }
+  def segment = rule { zeroOrMore(pchar) ~ zeroOrMore(";" ~ param) }
+  def param  = rule { zeroOrMore(pchar) }
+
+  def pchar = rule { unreserved | escaped | CharPredicate(":@&=+$,") }
+  def scheme =  rule { CharPredicate.Alpha ~ zeroOrMore(CharPredicate.AlphaNum | CharPredicate("+-.")) }
+  def authority = rule { srvr | regName }
+  def srvr =  rule { optional(optional(userInfo ~ "@") ~ hostPort) }
+  def regName  =  rule { oneOrMore(unreserved | escaped | CharPredicate("$,;:@&=+")) }
+  def query =  rule { zeroOrMore(uric) }
+
+  def tagParam = rule { "tag" ~ EQUAL ~ token }
+  def genericParam  = rule { token ~ optional(EQUAL ~ genValue) }
+  def genValue = rule { token | host | quotedString }
+
+  def nameAddr =  rule { optional(displayName) ~ LAQUOT ~ addrSpec ~ RAQUOT }
+  def displayName = rule { zeroOrMore(token ~ LWS) | quotedString }
+
+  def fromParam = rule { tagParam | genericParam }
+  def toParam = fromParam
+
+  def requestUri = rule { SipUri | SipsUri | absoluteURI }
   def requestLine = rule { method ~ SP ~ requestUri ~ SP ~ SipVersion ~ CRLF }
   def statusCode = rule { 3.times(CharPredicate.Digit) }
   def reasonPhrase = rule { zeroOrMore(reserved | unreserved | escaped | UTF8NONASCII | UTF8CONT | WSP) }
@@ -85,6 +119,8 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 
   /* Handled headers */
   def callIdHeader = rule { ("Call-Id" | "i") ~ HCOLON ~ capture(word ~ optional('@' ~ word)) ~> (i => CallId(i)) }
+  def cSeqHeader = rule { ("CSeq") ~ HCOLON ~ capture(oneOrMore(CharPredicate.Digit)) ~> (i => CSeq(i.toLong)) }
+  def fromHeader = rule { ("From" | "f") ~ HCOLON ~ (nameAddr | addrSpec) ~ zeroOrMore(SEMI ~ fromParam) }
 
 
 }
