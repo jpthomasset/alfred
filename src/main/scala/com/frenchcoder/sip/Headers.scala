@@ -1,8 +1,5 @@
 package com.frenchcoder.sip
 
-import gov.nist.javax.sip.{header => gsh}
-import scala.reflect.ClassTag
-
 class Headers(val headers: Seq[(String, String)]) {
 
   def getHeaders(name: String): Seq[String] =
@@ -26,15 +23,6 @@ class Headers(val headers: Seq[(String, String)]) {
 }
 
 object Headers {
-  def apply(headers: Iterator[gsh.SIPHeader]) : Headers = {
-    new Headers(headers.map(headerToSeq).toSeq)
-  }
-
-  def headerToSeq(header: gsh.SIPHeader): (String, String) = {
-    (header.getName, header.getValue)
-  }
-
-
   val `To` = "To"
   val `From` = "From"
   val `CSeq` = "CSeq"
@@ -65,10 +53,3 @@ case class CSeq(id: Long) extends Header {
   val value = id.toString
 }
 
-abstract class HeaderModel[T: ClassTag] extends Header {
-
-  private def nameFromModel(clazz: Class[T]): String = {
-    //val n = clazz.getName
-    ""
-  }
-}

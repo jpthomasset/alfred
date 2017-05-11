@@ -2,7 +2,7 @@ package com.frenchcoder.sip
 
 case class UserInfo(user: String, password: Option[String])
 case class HostAndPort(host: String, port: Option[Int])
-case class UriParameter(name: String, value: String)
+case class UriParameter(name: String, value: Option[String])
 case class UriHeader(name: String, value: String)
 
 sealed trait Authority

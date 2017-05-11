@@ -6,11 +6,11 @@ import javax.sip._
 class SipEventForwarder(client: ActorRef) extends SipListener {
 
   def processRequest(event: RequestEvent): Unit = {
-    client ! Request(event.getRequest)
+
   }
 
   def processResponse(event: ResponseEvent): Unit = {
-    client ! Response(event.getResponse)
+
   }
 
   def processDialogTerminated(event: DialogTerminatedEvent): Unit = {

@@ -50,26 +50,27 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def host = rule { domain | IpV4Address | IpV6Address }
   def hostPort = rule { capture(host) ~ optional(':' ~ capture(port)) ~> ((h, p) => HostAndPort(h, p.map(_.toInt))) }
   def token = rule { oneOrMore(CharPredicate.AlphaNum | CharPredicate("-.!%*_+`'~")) }
-  def transportParam = rule { "transport=" ~ ("udp" | "tcp" | "sctp" | "tls" | token) }
-  def userParam = rule { "user=" ~ ( "phone" | "ip" | token) }
-  def methodParam = rule { "method=" ~ method }
+  def transportParam = rule { "transport=" ~ capture("udp" | "tcp" | "sctp" | "tls" | token) ~> (v => UriParameter("transport", Some(v))) }
+  def userParam = rule { "user=" ~ capture( "phone" | "ip" | token) ~> (v => UriParameter("user", Some(v)))}
+  def methodParam = rule { "method=" ~ capture(method) ~> (v => UriParameter("method", Some(v))) }
   def ttl = rule { (1 to 3).times(CharPredicate.Digit) }
-  def ttlParam = rule { "ttl=" ~ ttl }
-  def maddrParam  = rule { "maddr=" ~ host }
+  def ttlParam = rule { "ttl=" ~ capture(ttl) ~> (v => UriParameter("ttl", Some(v)))}
+  def maddrParam  = rule { "maddr=" ~ capture(host) ~> (v => UriParameter("maddr", Some(v))) }
   def paramNameValue = rule { oneOrMore(CharPredicate("[]/:&+$") | unreserved | escaped) }
-  def otherParam = rule { paramNameValue ~ optional('=' ~ paramNameValue) }
+  def lrParam = rule { "lr" ~ push(UriParameter("lr", None)) }
+  def otherParam = rule { capture(paramNameValue) ~ optional('=' ~ capture(paramNameValue)) ~> ((n,v) => UriParameter(n, v))}
   def hname = rule { oneOrMore(hnvUnreserved | unreserved | escaped) }
   def hvalue = rule { zeroOrMore(hnvUnreserved | unreserved | escaped) }
-  def header = rule { hname ~ "=" ~ hvalue }
-  def headers = rule { "?" ~ header ~ zeroOrMore("&" ~ header) }
-  def uriParameter = rule { transportParam | userParam | methodParam | ttlParam | maddrParam | "lr" | otherParam }
+  def header = rule { capture(hname) ~ "=" ~ capture(hvalue) ~> ((n,v) => UriHeader(n, v)) }
+  def headers: Rule1[Seq[UriHeader]] = rule { "?" ~ capture(header) ~ zeroOrMore("&" ~ header) ~> ((a:UriHeader, b: Seq[UriHeader]) => a +: b)}
+  def uriParameter = rule { transportParam | userParam | methodParam | ttlParam | maddrParam | lrParam | otherParam }
   def uriParameters = rule { zeroOrMore(';' ~ uriParameter) }
 
-  def SipUri = rule { "sip:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers)}
-  def SipsUri = rule { "sips:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers)}
-  def SipVersion = rule { "SIP/" ~ oneOrMore(CharPredicate.Digit) ~ "." ~ oneOrMore(CharPredicate.Digit) }
+  def sipUri = rule { "sip:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers) ~> ((u, h, p, hdr) => SipUri(false, u, h, p, hdr))}
+  def sipsUri = rule { "sips:" ~ optional(userInfo) ~ hostPort ~ uriParameters ~ optional(headers)}
+  def sipVersion = rule { "SIP/" ~ oneOrMore(CharPredicate.Digit) ~ "." ~ oneOrMore(CharPredicate.Digit) }
 
-  def addrSpec =  rule { SipUri | SipsUri | absoluteURI }
+  def addrSpec =  rule { sipUri | sipsUri | absoluteURI }
   def absoluteURI =  rule { scheme ~ ":" ~ ( hierPart | opaquePart ) }
   def hierPart =  rule { (netPath | absPath ) ~ optional("?" ~ query) }
   def netPath =  rule { "//" ~ authority ~ optional(absPath) }
@@ -88,7 +89,6 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def authority = rule { srvr | regName }
   def srvrNonEmpty = rule { optional(userInfo ~ "@") ~ hostPort ~> ((u, h) => Server(u, h)) }
   def srvr =  rule { optional(srvrNonEmpty) ~> (s => s.getOrElse(EmptyServer)) }
-//    def srvr =  rule { optional(optional(userInfo ~ "@") ~ hostPort) }
   def regName  =  rule { capture(oneOrMore(unreserved | escaped | CharPredicate("$,;:@&=+"))) ~> (s => RegName(s)) }
   def query =  rule { zeroOrMore(uric) }
 
@@ -102,11 +102,11 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
   def fromParam = rule { tagParam | genericParam }
   def toParam = fromParam
 
-  def requestUri = rule { SipUri | SipsUri | absoluteURI }
-  def requestLine = rule { method ~ SP ~ requestUri ~ SP ~ SipVersion ~ CRLF }
+  def requestUri = rule { sipUri | sipsUri | absoluteURI }
+  def requestLine = rule { method ~ SP ~ requestUri ~ SP ~ sipVersion ~ CRLF }
   def statusCode = rule { 3.times(CharPredicate.Digit) }
   def reasonPhrase = rule { zeroOrMore(reserved | unreserved | escaped | UTF8NONASCII | UTF8CONT | WSP) }
-  def statusLine = rule { SipVersion ~ SP ~ statusCode ~ reasonPhrase ~ CRLF }
+  def statusLine = rule { sipVersion ~ SP ~ statusCode ~ reasonPhrase ~ CRLF }
   
   def headerValue = rule { zeroOrMore(TEXTUTF8char | UTF8CONT | LWS) }
   def extensionHeader = rule { capture(token) ~ HCOLON ~ capture(headerValue) ~> ((n,v) => GenericHeader(n, v)) }
@@ -116,7 +116,7 @@ class MessageParser(val input: ParserInput) extends Parser with TelParser with I
 
   def request = rule { requestLine ~ zeroOrMore(messageHeader) ~ CRLF ~ optional(messageBody) }
   def response = rule { statusLine ~ zeroOrMore(messageHeader) ~ CRLF ~ optional(messageBody) }
-  def SipMessage = rule { request | response }
+  def sipMessage = rule { request | response }
 
 
   /* Handled headers */
